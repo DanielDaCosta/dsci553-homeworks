@@ -1,0 +1,14 @@
+city,stars
+Toronto,2.0
+Cleveland,2.0
+Mesa,3.0
+Gilbert,5.0
+Calgary,5.0
+Las Vegas,3.7
+Phoenix,3.0
+Orange Village,4.5
+McKees Rocks,5.0
+Markham,3.0
+Pittsburgh,3.0
+Chandler,5.0
+Scottsdale,1.0
