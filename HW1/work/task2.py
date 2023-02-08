@@ -30,7 +30,7 @@ print(f"Execution time default: {exe_time_default}")
 
 # Custom Partition
 start_time = time.time()
-top10_bussiness_custom_partition = review.map(lambda x: (x['business_id'] , 1)).partitionBy(n_partitions_custom, lambda x: ord(x[0][0]))
+top10_bussiness_custom_partition = review.map(lambda x: (x['business_id'] , 1)).partitionBy(n_partitions_custom, lambda x: ord(x[:1]))
 top10_business_custom = top10_bussiness_custom_partition.groupByKey().mapValues(sum).takeOrdered(10, lambda x: (-x[1], x[0]))
 exe_time_custom = time.time() - start_time
 n_items_custom = top10_bussiness_custom_partition.glom().map(lambda x: len(x)).collect()
