@@ -1,5 +1,4 @@
 from pyspark import SparkContext
-from pyspark.sql import SQLContext
 import time
 import json
 import sys
@@ -14,10 +13,11 @@ output_filepath = sys.argv[2]
 # Start SparkContext
 
 sc = SparkContext.getOrCreate()
-sc1 = SQLContext(sc)
+sc.setLogLevel('WARN') 
 
 # Read File
-review = sc1.read.json(review_filepath).rdd
+review = sc.textFile(review_filepath)
+review = review.map(json.loads)
 
 
 #####
@@ -48,7 +48,7 @@ n_business = review.map(lambda x: x['business_id']).distinct().count()
 #####
 # F #
 #####
-top10_business = review.map(lambda x: (x['business_id'] , 1)).groupByKey().mapValues(sum).takeOrdered(10, lambda x: (-x[1], x[0]))
+top10_business = review.map(lambda x: (x['business_id'] , 1)).reduceByKey(lambda x,y: x + y ).takeOrdered(10, lambda x: (-x[1], x[0]))
 
 # Save File
 output = {

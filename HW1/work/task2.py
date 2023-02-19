@@ -1,5 +1,4 @@
 from pyspark import SparkContext
-from pyspark.sql import SQLContext
 import time
 import json
 import sys
@@ -15,26 +14,34 @@ n_partitions_custom = int(sys.argv[3])
 # Start SparkContext
 
 sc = SparkContext.getOrCreate()
-sc1 = SQLContext(sc)
+sc.setLogLevel('WARN')
 
 # Read File
-review = sc1.read.json(review_filepath).rdd
+review = sc.textFile(review_filepath)
+review = review.map(json.loads)
 
 # Default Partition
+
+start_time = time.time()
+review = sc.textFile(review_filepath)
+review = review.map(json.loads)
+top10_bussiness_default_partition = review.map(lambda x: (x['business_id'] , 1))
+top10_business = top10_bussiness_default_partition.reduceByKey(lambda x,y: x + y ).takeOrdered(10, lambda x: (-x[1], x[0]))
+exe_time_default = time.time() - start_time
 n_partitions_default = review.getNumPartitions()
 n_items_default = review.glom().map(lambda x: len(x)).collect()
-start_time = time.time()
-top10_business = review.map(lambda x: (x['business_id'] , 1)).groupByKey().mapValues(sum).takeOrdered(10, lambda x: (-x[1], x[0]))
-exe_time_default = time.time() - start_time
-print(f"Execution time default: {exe_time_default}")
+# print(f"Execution time default: {exe_time_default}")
 
 # Custom Partition
+
 start_time = time.time()
-top10_bussiness_custom_partition = review.map(lambda x: (x['business_id'] , 1)).partitionBy(n_partitions_custom, lambda x: ord(x[:1]))
-top10_business_custom = top10_bussiness_custom_partition.groupByKey().mapValues(sum).takeOrdered(10, lambda x: (-x[1], x[0]))
+review = sc.textFile(review_filepath)
+review = review.map(json.loads)
+top10_bussiness_custom_partition = review.map(lambda x: (x['business_id'] , 1)).partitionBy(n_partitions_custom, lambda x: hash(x))
+top10_business_custom = top10_bussiness_custom_partition.reduceByKey(lambda x,y: x + y ).takeOrdered(10, lambda x: (-x[1], x[0]))
 exe_time_custom = time.time() - start_time
 n_items_custom = top10_bussiness_custom_partition.glom().map(lambda x: len(x)).collect()
-print(f"Execution time custom: {time.time() - start_time}")
+# print(f"Execution time custom: {exe_time_custom}")
 
 
 output = {}

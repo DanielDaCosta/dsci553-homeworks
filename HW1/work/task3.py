@@ -1,5 +1,4 @@
 from pyspark import SparkContext
-from pyspark.sql import SQLContext
 import time
 import json
 import sys
@@ -16,15 +15,17 @@ output_filepath_question_b = sys.argv[4]
 # Start SparkContext
 
 sc = SparkContext.getOrCreate()
-sc1 = SQLContext(sc)
+sc.setLogLevel('WARN') 
 
 #######
 ## A ##
 #######
 
 # Read Files
-review = sc1.read.json(review_filepath).rdd
-business = sc1.read.json(business_filepath).rdd
+review = sc.textFile(review_filepath)
+review = review.map(json.loads)
+business = sc.textFile(business_filepath)
+business = business.map(json.loads)
 
 # Discard records with empty “city”
 business_filtered = business.filter(lambda x: len(x['city']) > 0)
@@ -32,7 +33,7 @@ review_business = review.map(lambda x: (x['business_id'], x['stars'])).join(busi
 
 # Compute Count and Sum
 review_business_agg = review_business.map(lambda x: (x[1][1], (x[1][0], 1))).reduceByKey(lambda x,y: (x[0] + y[0], x[1] + y[1]))
-output_question_a = review_business_agg.map(lambda x: (x[0], (x[1][0]/x[1][1]))).collect()
+output_question_a = review_business_agg.map(lambda x: (x[0], (x[1][0]/x[1][1]))).takeOrdered(10, lambda x: (-x[1], x[0]))
 
 # Save File
 
@@ -53,8 +54,11 @@ with open(output_filepath_question_a,'w') as f:
 start_time = time.time()
 
 # Read
-review = sc1.read.json(review_filepath).rdd
-business = sc1.read.json(business_filepath).rdd
+review = sc.textFile(review_filepath)
+review = review.map(json.loads)
+business = sc.textFile(business_filepath)
+business = business.map(json.loads)
+
 
 # Collect
 # Discard records with empty “city”
@@ -79,8 +83,10 @@ exe_time_m1 = time.time() - start_time
 start_time = time.time()
 
 # Read
-review = sc1.read.json(review_filepath).rdd
-business = sc1.read.json(business_filepath).rdd
+review = sc.textFile(review_filepath)
+review = review.map(json.loads)
+business = sc.textFile(business_filepath)
+business = business.map(json.loads)
 
 # Collect
 # Discard records with empty “city”
@@ -99,10 +105,12 @@ exe_time_m2 = time.time() - start_time
 output_question_3_b = {
     "m1": exe_time_m1,
     "m2": exe_time_m2,
-    "reason": ("We observe that the python sorting executed faster than Spark. "
-    "When working in a distributed environment, sorting becomes an expensive operation. "
-    "Since the rows of data are in different machines, Spark must execute shuffle operations to sort the data, which is expensive. "
-    "On the other hand, in python sorting, we are sorting a list in a single machine, leading to a higher performance.")
+    "reason": ("We observe that the python sorting executed faster than Spark."
+               "Even though spark process data in parallel, when sorting small datasets, "
+               "it can be the case that python runs the code faster. But for huge datasets spark will outperform python")
+    # "When working in a distributed environment, sorting becomes an expensive operation. "
+    # "Since the rows of data are in different machines, Spark must execute shuffle operations to sort the data, which is expensive. "
+    # "On the other hand, in python sorting, we are sorting a list in a single machine, leading to a higher performance.")
 }
 
 with open(output_filepath_question_b, "w") as outfile:
