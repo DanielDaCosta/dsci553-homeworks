@@ -2,6 +2,7 @@ from pyspark import SparkContext
 import sys
 from collections import defaultdict
 import itertools
+import time
 
 def new_candidate(subset: tuple, L_k_1: set, L_1: set, k: int, C_k: list) -> set:
     list_of_candidates = set()
@@ -186,7 +187,9 @@ if __name__ == '__main__':
 
     # Start SparkContext
     sc = SparkContext.getOrCreate()
+    sc.setLogLevel('ERROR') 
     # Read File, skipping header
+    start_time = time.time()
     review = sc.textFile(input_file_path).zipWithIndex().\
         filter(lambda x: x[1] > 0).\
             map(lambda line: line[0].split(","))
@@ -237,3 +240,5 @@ if __name__ == '__main__':
     # Save File #
     #############
     save_to_file(output_file_path, 'Candidates', candidate_itemsets, 'Frequent Itemsets', frequent_itemset)
+    end_time = time.time()
+    print('Duration: ', end_time -  start_time)
