@@ -4,14 +4,13 @@ from collections import defaultdict
 import itertools
 import time
 
-def new_candidate(subset: tuple, L_k_1: set, L_1: set, k: int, C_k: list) -> set:
+def new_candidate(subset: tuple, L_k_1: set, L_1: set, k: int, C_k: set) -> set:
     list_of_candidates = set()
     for frequent_item in L_1: # Iterate over each item of L_1 that does not intersect
-        if frequent_item[0] in subset: # Do nothing if L_1 item is already in subset
-            continue
         # For each basket, we need only look at those items that are in L_1
-        new_candidate = set(sorted(subset + frequent_item)) 
-        
+        new_candidate = tuple(sorted(subset + frequent_item)) 
+        if (frequent_item[0] in subset) or (new_candidate in C_k): # Do nothing if L_1 item is already in subset or if new_candidate was already created
+            continue
         # print(new_candidate)
         # print(list_of_candidates)
         if new_candidate not in list_of_candidates:
@@ -20,7 +19,7 @@ def new_candidate(subset: tuple, L_k_1: set, L_1: set, k: int, C_k: list) -> set
             # print(subset_combination)
             # print(subset_combination)
             if subset_combination <= L_k_1:
-                list_of_candidates.add(tuple(new_candidate)) #if new_candidate not in C_k else list_of_candidates # Remove duplicates
+                list_of_candidates.add(new_candidate) #if new_candidate not in C_k else list_of_candidates # Remove duplicates
     return list_of_candidates
 
 
@@ -55,23 +54,6 @@ def count_itemsets_of_size_k(basket_rdd: list, candidates_list: list, threshold:
 
     return {k for k,v in candidates_count.items() if v >= threshold}
 
-def hash_items(basket_rdd: list) -> dict:
-    '''Translates item names into integers from 1 to n
-
-    Args:
-        basket_rdd (list): [(key, value), ...]
-
-    Returns:
-        (dict): {item: hash, ...}
-    '''
-    subset_items = set()
-    for _, list_items in basket_rdd:
-        subset_items = subset_items | set(list_items)
-    subset_items = list(subset_items)
-    n = range(1, len(subset_items) + 1) # n is the number of distinct items
-    map_to_int = { item: n_item for item, n_item in zip(subset_items, n)}
-    return map_to_int
-
 
 def a_priori_algorithm(partitionData: map, threshold: int, size_input_file: int) -> tuple:
 
@@ -79,25 +61,17 @@ def a_priori_algorithm(partitionData: map, threshold: int, size_input_file: int)
     # Compute Threshold
     chunk_p_s_threshold = p_s_threshold(partitionData, threshold, size_input_file)
 
-    # Hash partition data since items can be strings (higher performance)
-    map_item_hash = hash_items(partitionData)
-    inv_map_item_hash = {v: k for k, v in map_item_hash.items()} # Look-up table to convert back to original value
-    user_basket_memory_hashed = []
-    for key, list_items in partitionData:
-        user_basket_memory_hashedlist = [map_item_hash[item] for item in list_items]
-        user_basket_memory_key = key
-        user_basket_memory_hashed.append((user_basket_memory_key, user_basket_memory_hashedlist))
-
-    # A-Pripri Algorithm 
+    # A-Priori Algorithm 
     k = 1
-    C_k = [(item,) for item in map_item_hash.values()] # Singletons Candidates
-    L_k_1 = count_itemsets_of_size_k(user_basket_memory_hashed, C_k, chunk_p_s_threshold) # all frequent singletons
+    C_k = set([(item,) for _, basket_list in partitionData for item in basket_list]) # Singletons Candidates
+    L_k_1 = count_itemsets_of_size_k(partitionData, C_k, chunk_p_s_threshold) # all frequent singletons
     L_1 = L_k_1.copy()
     k += 1
     while len(L_k_1) > 0:
-        for freq_item in L_k_1:  yield (tuple([inv_map_item_hash[item] for item in tuple(sorted(freq_item))]), 1) # Convert hash back to original name
+        for freq_item in L_k_1:  yield (tuple(sorted([item for item in freq_item])), 1) # Convert back to 
         C_k = generate_candidates(L_k_1, L_1, k)
-        L_k_1 = count_itemsets_of_size_k(user_basket_memory_hashed, C_k, chunk_p_s_threshold) # all frequent singletons
+        L_k_1 = count_itemsets_of_size_k(partitionData, C_k, chunk_p_s_threshold) # all frequent singletons
+
         k += 1
 
 
@@ -113,7 +87,7 @@ def p_s_threshold(partitionData: map, support_threshold: int, size_input_file: i
         (int): p*s
     '''
 
-    return round(support_threshold*(len(partitionData)/size_input_file))
+    return support_threshold*(len(partitionData)/size_input_file)
 
 
 def count_freq_itemsets(partitionData: map, candidate_itemsets: list) -> tuple:
@@ -218,7 +192,7 @@ if __name__ == '__main__':
         mapPartitions(lambda partition: a_priori_algorithm(partition, support_threshold, size_input_file))
     
     # Reduce Task 1
-    reduce_task_1 = map_task_1.map(lambda x: x[0]).distinct().sortBy(lambda x: (len(x), x))
+    reduce_task_1 = map_task_1.map(lambda x: tuple(sorted(x[0]))).distinct().sortBy(lambda x: (len(x), x))
 
     candidate_itemsets = reduce_task_1.collect()
 
@@ -231,7 +205,7 @@ if __name__ == '__main__':
     # If candidate_itemset count > threshold return`` 
     reduce_task_2 = map_task_2.\
         reduceByKey(lambda x,y: x + y).filter(lambda x: x[1] >= support_threshold).\
-            map(lambda x: x[0]).sortBy(lambda x: (len(x), x))
+            map(lambda x: tuple(sorted(x[0]))).sortBy(lambda x: (len(x), x))
     
     frequent_itemset = reduce_task_2.collect()
 
