@@ -48,20 +48,24 @@ if __name__ == '__main__':
     yelp_train = sc.textFile(f'{folder_path}/yelp_train.csv').zipWithIndex().filter(lambda x: x[1] > 0).map(lambda line: line[0].split(","))
     business = sc.textFile(f'{folder_path}/business.json')
     business = business.map(json.loads)
-    review_json = sc.textFile(f'{folder_path}/review_train.json')
-    review_json = review_json.map(json.loads)
+    # review_json = sc.textFile(f'{folder_path}/review_train.json')
+    # review_json = review_json.map(json.loads)
+    user = sc.textFile(f'{folder_path}/user.json')
+    user = user.map(json.loads)
+    user = user.map(lambda x: (x['user_id'], x['average_stars'], x['review_count'], x['useful'],
+                    x['funny'], x['cool']))
 
     ######################
     # Data Preprocessing #
     ######################
-    # Compute Avg_Star and Review Count per User_Id
-    review_json_avg_star_review_count = review_json.map(
-        lambda x: (x['user_id'], x['stars'])).aggregateByKey((0,0), lambda a,b: (a[0] + b, a[1] + 1),
-                                        lambda a,b: (a[0] + b[0], a[1] + b[1])).mapValues(lambda x: (x[0]/x[1], x[1]))
+    # # Compute Avg_Star and Review Count per User_Id
+    # review_json_avg_star_review_count = review_json.map(
+    #     lambda x: (x['user_id'], x['stars'])).aggregateByKey((0,0), lambda a,b: (a[0] + b, a[1] + 1),
+    #                                     lambda a,b: (a[0] + b[0], a[1] + b[1])).mapValues(lambda x: (x[0]/x[1], x[1]))
 
-    # Compute Number of like, funny and cool reviews per user
-    review_json_sum_opinions = review_json.map(
-        lambda x: (x['user_id'], (x['useful'], x['funny'], x['cool']))).reduceByKey(lambda x,y: (x[0] + y[0], x[1] + y[1], x[2] + y[2]))
+    # # Compute Number of like, funny and cool reviews per user
+    # review_json_sum_opinions = review_json.map(
+    #     lambda x: (x['user_id'], (x['useful'], x['funny'], x['cool']))).reduceByKey(lambda x,y: (x[0] + y[0], x[1] + y[1], x[2] + y[2]))
     
     # Add Business Stars and review_count
     # (business_id, user_id, avg_stars, review_count)
@@ -69,13 +73,17 @@ if __name__ == '__main__':
         business.map(lambda x: (x['business_id'], (x['stars'], x['review_count']))
     )).map(lambda x: (x[0], x[1][0][0], x[1][0][1], x[1][1][0], x[1][1][1]))
 
-    train_rdd = train_rdd.map(lambda x: (x[1], (x[0], x[2], x[3], x[4]))).join(
-    review_json_avg_star_review_count).map(lambda x: (x[0], x[1][0][0], x[1][0][1], x[1][0][2], x[1][0][3], x[1][1][0], x[1][1][1]))
+    # train_rdd = train_rdd.map(lambda x: (x[1], (x[0], x[2], x[3], x[4]))).join(
+    # review_json_avg_star_review_count).map(lambda x: (x[0], x[1][0][0], x[1][0][1], x[1][0][2], x[1][0][3], x[1][1][0], x[1][1][1]))
 
-    train_rdd = train_rdd.map(lambda x: (x[0], (x[1], x[2], x[3], x[4], x[5], x[6]))).\
-    join(review_json_sum_opinions).map(lambda x: (x[0], x[1][0][0], x[1][0][1], x[1][0][2],x[1][0][3], x[1][0][4], x[1][0][4], x[1][1][0], x[1][1][1], x[1][1][2]))
+    # train_rdd = train_rdd.map(lambda x: (x[0], (x[1], x[2], x[3], x[4], x[5], x[6]))).\
+    # join(review_json_sum_opinions).map(lambda x: (x[0], x[1][0][0], x[1][0][1], x[1][0][2],x[1][0][3], x[1][0][4], x[1][0][4], x[1][1][0], x[1][1][1], x[1][1][2]))
 
     # Shuffling
+    train_rdd = train_rdd.map(lambda x: (x[1], (x[0], x[2], x[3], x[3]))).join(
+    user.map(lambda x: (x[0], (x[1], x[2], x[3], x[4], x[5])))).map(
+    lambda x: (x[0], x[1][0][0], x[1][0][1], x[1][0][2], x[1][0][3], x[1][1][0], x[1][1][1], x[1][1][2], x[1][1][3], x[1][1][4]))
+
     train_rdd = train_rdd.map(lambda x: (hash(x), x)).sortByKey().map(lambda x: x[1])
 
 
@@ -86,7 +94,7 @@ if __name__ == '__main__':
     # X_train = np.array(train_rdd.map(lambda x: [x[3], x[4], x[5], x[6], x[7], x[8], x[9]]).collect())
     X_train = X[:, 1:]
     y_train = X[:, 0]
-    xgbr = xgb.XGBRegressor(verbosity=0, eta=0.15, max_depth=6, seed=42, reg_lambda=3, eval_metric='rmse')
+    xgbr = xgb.XGBRegressor(n_estimators=100, verbosity=0, eta=0.25, max_depth=6, random=42)
     xgbr.fit(X_train, y_train)
 
 
@@ -99,11 +107,14 @@ if __name__ == '__main__':
     test_rdd = yelp_val.map(lambda x: (x[1], x[0])).join(
         business.map(lambda x: (x['business_id'], (x['stars'], x['review_count']))
     )).map(lambda x: (x[0], x[1][0], x[1][1][0], x[1][1][1]))
-    test_rdd = test_rdd.map(lambda x: (x[1], (x[0], x[2], x[3]))).join(
-    review_json_avg_star_review_count).map(lambda x: (x[0], x[1][0][0], x[1][0][1], x[1][0][2], x[1][1][0], x[1][1][1]))
-    test_rdd = test_rdd.map(lambda x: (x[0], (x[1], x[2], x[3], x[4], x[5]))).\
-    join(review_json_sum_opinions).map(lambda x: (x[0], x[1][0][0], x[1][0][1], x[1][0][2],x[1][0][3], x[1][0][4], x[1][1][0], x[1][1][1], x[1][1][2]))
 
+    # test_rdd = test_rdd.map(lambda x: (x[1], (x[0], x[2], x[3]))).join(
+    # review_json_avg_star_review_count).map(lambda x: (x[0], x[1][0][0], x[1][0][1], x[1][0][2], x[1][1][0], x[1][1][1]))
+    # test_rdd = test_rdd.map(lambda x: (x[0], (x[1], x[2], x[3], x[4], x[5]))).\
+    # join(review_json_sum_opinions).map(lambda x: (x[0], x[1][0][0], x[1][0][1], x[1][0][2],x[1][0][3], x[1][0][4], x[1][1][0], x[1][1][1], x[1][1][2]))
+    test_rdd = test_rdd.map(lambda x: (x[1], (x[0], x[2], x[3]))).join(
+    user.map(lambda x: (x[0], (x[1], x[2], x[3], x[4], x[5])))).map(
+    lambda x: (x[0], x[1][0][0], x[1][0][1], x[1][0][2], x[1][1][0], x[1][1][1], x[1][1][2], x[1][1][3], x[1][1][4]))
 
     X_test = np.array(test_rdd.map(lambda x: [x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8]]).collect())
     y_pred = xgbr.predict(X_test[:, 2:].astype(float))

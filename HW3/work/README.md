@@ -38,3 +38,10 @@ spark-submit task2_1_v2.py ../resource/asnlib/publicdata/yelp_train.csv ../resou
 ```bash
 spark-submit task2_2.py ../resource/asnlib/publicdata ../resource/asnlib/publicdata/yelp_val_in.csv task2_2.csv
 ```
+
+# Task 2.3
+
+## Local
+```bash
+spark-submit task2_2.py ../resource/asnlib/publicdata ../resource/asnlib/publicdata/yelp_val_in.csv task2_3.csv
+```
