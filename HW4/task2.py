@@ -116,6 +116,84 @@ def save_output_betweenness(rows: dict, output_path: str, index_users_invert: di
         f.write('\n'.join(f"('{key_tuple[0]}', '{key_tuple[1]}'),{value}" for key_tuple, value in sorted(rows.items(), key= lambda x: (-x[1], x[0]))))
                                                                                                                                                                            
 
+def find_sub_graphs(nodes_neighbors: dict) -> list:
+    '''Find sub-graphs. Example:
+    nodes_neighbors = {'A': ['B', 'D'], 'B': ['A', 'C'], 'C': ['B'], 'D': ['A'], 'E': ['F'], 'F': ['E']}
+    returns: [['A', 'B', 'D', 'C'], ['E', 'F']]
+
+    Args:
+        nodes_neighbors (dict)
+    Returns:
+        list
+    '''
+
+    visited = set()
+    communities = []
+    for node, neighbors in nodes_neighbors.items():
+        if node not in visited:
+            sub_graph = BFS_node(node, nodes_neighbors)
+            sub_graph = list(sub_graph.keys())
+            communities.append(frozenset(sub_graph))
+            visited = visited.union(sub_graph)
+            # print(visited)
+    return communities
+
+
+def compute_modularity(sub_graphs: list, nodes_neighbors: dict, size_m: int, nodes_degree: dict):
+
+    cum_sum = 0
+    for community in sub_graphs:
+        for i in community:
+            k_i = nodes_degree[i]
+            for j in community:
+                k_j = nodes_degree[j]
+                if j in nodes_neighbors[i]: # check if edge between i and j exists
+                    A_i_j = 1
+                else:
+                    A_i_j = 0
+                cum_sum += (A_i_j - k_i*k_j/(2*size_m))
+    return cum_sum/(2*size_m)
+
+
+def find_communities(edges: dict, nodes_neighbors: dict, nodes_degree: dict) -> list:
+
+    edges_filtered = edges.copy()
+    m = len(edges_filtered) # number of edges
+    nodes_neighbors_filtered = nodes_neighbors.copy()
+    max_modularity = -1
+    while len(edges_filtered) > 0: # remove edges with the highest betweenness
+        max_betweenness = max(edges_filtered.values())
+        max_keys = [key for key, value in edges_filtered.items() if value == max_betweenness] # keys to be removed. if two or more edges have the same (highest) betweenness, you should remove all those edges.
+        for key in max_keys:
+        #     if key[0] in nodes_neighbors[key[1]]:
+            key_tmp = tuple(key)
+            nodes_neighbors_filtered[key_tmp[0]].remove(key_tmp[1]) # remove both directions
+            nodes_neighbors_filtered[key_tmp[1]].remove(key_tmp[0])
+            # edges_filtered.pop(key)
+        # Re-compute betwenness
+        edges_filtered = girvan_newman_algorithm(nodes_neighbors_filtered) 
+
+        # Generate graph
+        sub_graphs = find_sub_graphs(nodes_neighbors_filtered)
+        # Compute Modularity
+        modularity = compute_modularity(sub_graphs, nodes_neighbors_filtered, m, nodes_degree)
+        if modularity >= max_modularity:
+            max_communities = sub_graphs
+            max_modularity = modularity
+
+    return max_communities
+
+
+def save_output_communities(rows: list, output_path: str, index_users_invert: dict):
+    output = []
+    for row in rows:
+        output.append(sorted([index_users_invert[i] for i in row]))
+    with open(output_path, 'w') as f:
+        output = sorted(output, key=lambda x: (len(x), x[0]))
+        # return output
+        f.write( '\n'.join(', '.join(f"'{value}'" for value in key_value) for key_value in output))
+        f.write('\n')
+
 
 if __name__ == '__main__':
 
@@ -173,14 +251,19 @@ if __name__ == '__main__':
     # Convert the list of tuples to an RDD
     vertices = sc.parallelize(vertices_list)
     edges = sc.parallelize(edges_list)
-    nodes_neighbors = edges.groupByKey().mapValues(list).collectAsMap()
+    # nodes_neighbors = edges.groupByKey().mapValues(list).collectAsMap()
+    nodes_neighbors = edges.groupByKey().mapValues(list)
+    nodes_degree = nodes_neighbors.map(lambda x: (x[0], len(x[1]))).collectAsMap()
+    nodes_neighbors = nodes_neighbors.collectAsMap()
+    
 
     #############
     # Algorithm #
     #############
     edge_betweennes = girvan_newman_algorithm(nodes_neighbors)
+    communities = find_communities(edge_betweennes, nodes_neighbors, nodes_degree)
 
-
-    save_output_betweenness(edge_betweennes, betweenness_output_file_path, index_users_invert)
+    save_output_betweenness(edge_betweennes, betweenness_output_file_path, index_users_invert) # Task 2.1
+    save_output_communities(communities, community_output_file_path, index_users_invert) # Tasl 2.2
     end_time = time.time()
     print('Duration: ', end_time - start_time)
