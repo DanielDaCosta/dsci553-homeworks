@@ -70,21 +70,23 @@ if __name__ == '__main__':
         filter(lambda x: len(x[1]) >= filter_threshold).collectAsMap()
 
     # Generate pairs
-    list_of_pairs = itertools.combinations(user_business.keys(), 2)
+    # list_of_pairs = itertools.combinations(user_business.keys(), 2)
+    list_of_pairs = sc.parallelize([i for i in user_business.keys()]).flatMap(lambda x: [(x, i) for i in user_business.keys() if i > x])
+    list_of_pairs_filtered = list_of_pairs.\
+        filter(lambda x: compute_similarity(user_business[x[0]], user_business[x[1]], filter_threshold)).collect()
 
     vertices_list = set() # avoid duplicates
     edges_list = set() # need to add edges in both directions because the Edge dataframe in GraphFrames expects directed edges 
-    for pair in list_of_pairs:
+    for pair in list_of_pairs_filtered:
         user_1 = index_users_invert[pair[0]]
         user_2 = index_users_invert[pair[1]]
-        if compute_similarity(user_business[pair[0]], user_business[pair[1]], filter_threshold):
-            # Add vertices
-            vertices_list.add((user_1,))
-            vertices_list.add((user_2,))
+        # Add vertices
+        vertices_list.add((user_1,))
+        vertices_list.add((user_2,))
 
-            # Add edges
-            edges_list.add((user_1, user_2))
-            edges_list.add((user_2, user_1))
+        # Add edges
+        edges_list.add((user_1, user_2)) # undirected graph
+        edges_list.add((user_2, user_1))
     # Convert the list of tuples to an RDD
     vertices = sc.parallelize(vertices_list)
     edges = sc.parallelize(edges_list)

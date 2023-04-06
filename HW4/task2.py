@@ -93,8 +93,6 @@ def girvan_newman_algorithm(nodes_neighbors: dict) -> dict:
             for n_key, n_value in node_at_level.items():
                 # print(n_value.n_path)
                 for parent in n_value.parents:
-                    if parent == 'A':
-                        print(bfs_target_node[parent])
                     bfs_target_node[parent].credit += n_value.credit*(bfs_target_node[parent].n_path/n_value.n_path)
                     edges_betweenness[frozenset((n_key, parent))] += (bfs_target_node[parent].n_path/n_value.n_path)*n_value.credit
                     # print(edges_betweenness[frozenset((n_key, parent))])
@@ -232,21 +230,24 @@ if __name__ == '__main__':
 
     # Generate pairs
 
-    list_of_pairs = itertools.combinations(user_business.keys(), 2)
+    # list_of_pairs = itertools.combinations(user_business.keys(), 2)
+    list_of_pairs = sc.parallelize([i for i in user_business.keys()]).flatMap(lambda x: [(x, i) for i in user_business.keys() if i > x])
+    list_of_pairs_filtered = list_of_pairs.\
+        filter(lambda x: compute_similarity(user_business[x[0]], user_business[x[1]], filter_threshold)).collect()
+
 
     vertices_list = set() # avoid duplicates
     edges_list = set() # need to add edges in both directions because the Edge dataframe in GraphFrames expects directed edges 
-    for pair in list_of_pairs:
+    for pair in list_of_pairs_filtered:
         user_1 = pair[0]
         user_2 = pair[1]
-        if compute_similarity(user_business[user_1], user_business[user_2], filter_threshold):
-            # Add vertices
-            vertices_list.add(user_1)
-            vertices_list.add(user_2)
+        # Add vertices
+        vertices_list.add((user_1,))
+        vertices_list.add((user_2,))
 
-            # Add edges
-            edges_list.add((user_1, user_2)) # undirected graph
-            edges_list.add((user_2, user_1))
+        # Add edges
+        edges_list.add((user_1, user_2)) # undirected graph
+        edges_list.add((user_2, user_1))
 
     # Convert the list of tuples to an RDD
     vertices = sc.parallelize(vertices_list)
