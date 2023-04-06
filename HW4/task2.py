@@ -111,7 +111,7 @@ def save_output_betweenness(rows: dict, output_path: str, index_users_invert: di
     with open(output_path, 'w') as f:
         rows = {(index_users_invert[tuple(key)[0]], index_users_invert[tuple(key)[1]]): value for key, value in rows.items()} # frozenset to tuple
 
-        f.write('\n'.join(f"('{key_tuple[0]}', '{key_tuple[1]}'),{value}" for key_tuple, value in sorted(rows.items(), key= lambda x: (-x[1], x[0]))))
+        f.write('\n'.join(f"('{key_tuple[0]}', '{key_tuple[1]}'),{round(value, 5)}" for key_tuple, value in sorted(rows.items(), key= lambda x: (-x[1], x[0]))))
                                                                                                                                                                            
 
 def find_sub_graphs(nodes_neighbors: dict) -> list:
