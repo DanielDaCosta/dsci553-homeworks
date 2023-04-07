@@ -233,25 +233,27 @@ if __name__ == '__main__':
     # list_of_pairs = itertools.combinations(user_business.keys(), 2)
     list_of_pairs = sc.parallelize([i for i in user_business.keys()]).flatMap(lambda x: [(x, i) for i in user_business.keys() if i > x])
     list_of_pairs_filtered = list_of_pairs.\
-        filter(lambda x: compute_similarity(user_business[x[0]], user_business[x[1]], filter_threshold)).collect()
+        filter(lambda x: compute_similarity(user_business[x[0]], user_business[x[1]], filter_threshold))
+    # Generate Nodes and Edges in RDD
+    # nodes = list_of_pairs_filtered.flatMap(lambda x: x).distinct()
+    edges = list_of_pairs_filtered.map(lambda x: [(x[0], x[1]), (x[1], x[0])]).flatMap(lambda x: x).distinct()
 
+    # vertices_list = set() # avoid duplicates
+    # edges_list = set() # need to add edges in both directions because the Edge dataframe in GraphFrames expects directed edges 
+    # for pair in list_of_pairs_filtered:
+    #     user_1 = pair[0]
+    #     user_2 = pair[1]
+    #     # Add vertices
+    #     vertices_list.add((user_1,))
+    #     vertices_list.add((user_2,))
 
-    vertices_list = set() # avoid duplicates
-    edges_list = set() # need to add edges in both directions because the Edge dataframe in GraphFrames expects directed edges 
-    for pair in list_of_pairs_filtered:
-        user_1 = pair[0]
-        user_2 = pair[1]
-        # Add vertices
-        vertices_list.add((user_1,))
-        vertices_list.add((user_2,))
+    #     # Add edges
+    #     edges_list.add((user_1, user_2)) # undirected graph
+    #     edges_list.add((user_2, user_1))
 
-        # Add edges
-        edges_list.add((user_1, user_2)) # undirected graph
-        edges_list.add((user_2, user_1))
-
-    # Convert the list of tuples to an RDD
-    vertices = sc.parallelize(vertices_list)
-    edges = sc.parallelize(edges_list)
+    # # Convert the list of tuples to an RDD
+    # vertices = sc.parallelize(vertices_list)
+    # edges = sc.parallelize(edges_list)
     # nodes_neighbors = edges.groupByKey().mapValues(list).collectAsMap()
     nodes_neighbors = edges.groupByKey().mapValues(list)
     nodes_degree = nodes_neighbors.map(lambda x: (x[0], len(x[1]))).collectAsMap()

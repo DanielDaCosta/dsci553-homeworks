@@ -73,23 +73,30 @@ if __name__ == '__main__':
     # list_of_pairs = itertools.combinations(user_business.keys(), 2)
     list_of_pairs = sc.parallelize([i for i in user_business.keys()]).flatMap(lambda x: [(x, i) for i in user_business.keys() if i > x])
     list_of_pairs_filtered = list_of_pairs.\
-        filter(lambda x: compute_similarity(user_business[x[0]], user_business[x[1]], filter_threshold)).collect()
+        filter(lambda x: compute_similarity(user_business[x[0]], user_business[x[1]], filter_threshold))
+    
+    # Edges and Nodes
 
-    vertices_list = set() # avoid duplicates
-    edges_list = set() # need to add edges in both directions because the Edge dataframe in GraphFrames expects directed edges 
-    for pair in list_of_pairs_filtered:
-        user_1 = index_users_invert[pair[0]]
-        user_2 = index_users_invert[pair[1]]
-        # Add vertices
-        vertices_list.add((user_1,))
-        vertices_list.add((user_2,))
+    vertices = list_of_pairs_filtered.flatMap(lambda x: x).distinct().map(lambda x: (index_users_invert[x],))
+    edges = list_of_pairs_filtered.\
+        map(lambda x: [(index_users_invert[x[0]], index_users_invert[x[1]]),
+                       (index_users_invert[x[1]], index_users_invert[x[0]])]).flatMap(lambda x: x).distinct()
 
-        # Add edges
-        edges_list.add((user_1, user_2)) # undirected graph
-        edges_list.add((user_2, user_1))
-    # Convert the list of tuples to an RDD
-    vertices = sc.parallelize(vertices_list)
-    edges = sc.parallelize(edges_list)
+    # vertices_list = set() # avoid duplicates
+    # edges_list = set() # need to add edges in both directions because the Edge dataframe in GraphFrames expects directed edges 
+    # for pair in list_of_pairs_filtered:
+    #     user_1 = index_users_invert[pair[0]]
+    #     user_2 = index_users_invert[pair[1]]
+    #     # Add vertices
+    #     vertices_list.add((user_1,))
+    #     vertices_list.add((user_2,))
+
+    #     # Add edges
+    #     edges_list.add((user_1, user_2)) # undirected graph
+    #     edges_list.add((user_2, user_1))
+    # # Convert the list of tuples to an RDD
+    # vertices = sc.parallelize(vertices_list)
+    # edges = sc.parallelize(edges_list)
 
     # Convert the RDD to a DataFrame with column names 'id' and 'name'
     #vertices_df = vertices.toDF(['id', 'name'])
