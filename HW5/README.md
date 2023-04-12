@@ -36,3 +36,17 @@ python task2.py ../resource/asnlib/publicdata/users.txt 300 30 task2.csv
 ```bash
 python task2.py ../resource/asnlib/publicdata/users.txt 300 30 task2.csv
 ```
+
+# Task 3
+
+## Local
+
+```bash
+python task3.py ../resource/asnlib/publicdata/users.txt 100 30 task3.csv
+```
+
+## Vocareum
+
+```bash
+python task3.py ../resource/asnlib/publicdata/users.txt 100 30 task3.csv
+```
