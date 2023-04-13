@@ -5,13 +5,14 @@ import random
 import binascii
 import csv
 import sys
+import time
 
 # where k is the number of hash functions, m is the size of the Bloom filter in bits, and n is the number of elements to be added to the filter.
 SIZE_BLOOM_FILTER = 69997
 PREVIOUS_SET = set()
-n = 100
-k = math.ceil((SIZE_BLOOM_FILTER / n) * math.log(2))
-# k = 100
+# n = 100
+# k = math.ceil((SIZE_BLOOM_FILTER / n) * math.log(2))
+k = 10
 bit_array = [0] * SIZE_BLOOM_FILTER
 
 def next_prime(num):
@@ -44,7 +45,7 @@ def hash_function_builder(n_hash_functions: int, n_users: int) -> list:
     # random.seed(42) # set seed for reproducibility
     list_b = [random.randint(1, n_users) for _ in range(n_hash_functions)]
     # random.seed(45) # set seed for reproducibility
-    list_p = [next_prime(random.randint(n_users, n_users + 10000)) for _ in range(n_hash_functions)]
+    list_p = [next_prime(random.randint(n_users, n_users + 10000000)) for _ in range(n_hash_functions)]
 
 
     list_of_hash_functions = []
@@ -101,6 +102,7 @@ def convert_to_int(user_id: str):
 def bloom_filter(stream_users: list) -> float:
     # int_users_dict = {user: convert_to_int(user) for user in stream_users}
     # set_of_duplicated_users = set()
+    global bit_array
     fp = 0
     tn = 0
     for user in stream_users:
@@ -109,14 +111,13 @@ def bloom_filter(stream_users: list) -> float:
 
         # Intersection of elems with 1
         intersection = one_indices & indices_users
-        # print(intersection)
+        # print(f'Intersection: {len(intersection)} OneIndices: {len(one_indices)} IndicesUsers: {len(indices_users)}')
 
         # if len(intersection) == 0:
-        for i in indices_users:
-            bit_array[i] = 1
 
         if user not in PREVIOUS_SET: # new user
-            if (len(intersection) > 0) and (len(intersection) == len(one_indices)): # if user is in bloom filter
+            if (len(intersection) == len(indices_users)): # if user is in bloom filter
+                # print('INSIDE') 
                 fp += 1
             else: # if not in bloom filter
                 tn += 1
@@ -125,7 +126,9 @@ def bloom_filter(stream_users: list) -> float:
         #     set_of_duplicated_users.add(user)
         # else:
         #     print(len(intersection))
-
+        new_elems = indices_users - one_indices
+        for i in new_elems:
+            bit_array[i] = 1
 
         PREVIOUS_SET.add(user)
         # set_of_duplicated_users.add(user)
@@ -156,6 +159,7 @@ list_of_hash_functions = hash_function_builder(k, SIZE_BLOOM_FILTER)
 
 
 if __name__ == '__main__':
+    start_time = time.time()
     dict_results = {}
     bit_array = [0] * SIZE_BLOOM_FILTER
 
@@ -177,3 +181,5 @@ if __name__ == '__main__':
         fpr = bloom_filter(stream_users)
         dict_results[batch] = fpr
     save_csv(dict_results, output_file_path)
+    end_time = time.time()
+    print('Duration: ', end_time - start_time)

@@ -7,10 +7,11 @@ import csv
 import statistics
 import binascii
 import sys
+import time
 
-N_HASH_FUNC = 70
-N_PARTITIONS = math.ceil(N_HASH_FUNC/5)
-_STREAM_SIZE = 300
+N_HASH_FUNC = 200
+N_PARTITIONS = 4 #math.ceil(N_HASH_FUNC/4)
+_STREAM_SIZE = 600
 
 
 def next_prime(num):
@@ -103,7 +104,7 @@ def combine_estimates(R_per_hash_func: list, n_partitions: int) -> int:
     '''
     
     size_rows = math.floor(len(R_per_hash_func)/n_partitions)
-    # print(size_rows)
+    # print(len(R_per_hash_func))
 
     results = []
     # Partition hash functions into small groups
@@ -111,6 +112,7 @@ def combine_estimates(R_per_hash_func: list, n_partitions: int) -> int:
         split = R_per_hash_func[i: i + size_rows]
         # Take average for each group
         results.append(sum(split)/len(split))
+
 
     return int(statistics.median(results))
 
@@ -125,6 +127,7 @@ def flajolet_martin_algorithm(stream_users: list, n_partitions: int) -> int:
         compute_trailing_zeros(hashed_values, hash_dict) # modifies hash_dict
 
     max_2R = [2**max(n_zeros) for _, n_zeros in hash_dict.items()]
+    # print(max_2R)
 
     estimate_2R = combine_estimates(max_2R, n_partitions)
     return estimate_2R
@@ -140,10 +143,11 @@ def save_csv(rows: dict, output_file_name: str, header=['Time', 'Ground Truth', 
 
 
 global list_of_hash_functions
-list_of_hash_functions = hash_function_builder(N_PARTITIONS, _STREAM_SIZE)
+list_of_hash_functions = hash_function_builder(N_HASH_FUNC, _STREAM_SIZE)
 
 
 if __name__ == '__main__':
+    start_time = time.time()
     dict_results = {}
 
     # Read Arguments
@@ -167,3 +171,5 @@ if __name__ == '__main__':
         dict_results[batch] = [unique_users, estimate]
 
     save_csv(dict_results, output_file_path)
+    end_time = time.time()
+    print('Duration: ', end_time - start_time)
