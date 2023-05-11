@@ -12,7 +12,7 @@ These following code are my homework source code.
 
 |No.|    Main Application    |Programming|Tags|Score|
 |---|------------------------|-----------|----|-----|
-|1|[Data Exploration](https://github.com/DanielDaCosta/dsci553-homeworks/blob/main/HW1/Assignment1%20-%20Spring%202023.pdf) |`MapReduce` `Spark` `Pyspark`|7.0 (python) + 0.0 (scala) / 7.0 + 0.7|
+|1|[Data Exploration](https://github.com/DanielDaCosta/dsci553-homeworks/blob/main/HW1/Assignment1%20-%20Spring%202023.pdf) | [Python](https://github.com/AaronYang2333/INF_553/tree/master/ay_hw_2)| `MapReduce` `Spark` `Pyspark`|7.0 (python) + 0.0 (scala) / 7.0 + 0.7|
 |2|[Find Frequent Itemsets](https://github.com/AaronYang2333/INF_553/blob/master/hw_pdf/assignment2.pdf)|[Python](https://github.com/AaronYang2333/INF_553/tree/master/ay_hw_2)| `PCY` `Apriori` `SON`|7.0 (python) + 0.0 (scala) / 7.0 + 0.7|
 |3|[Recommendation Systems](https://github.com/AaronYang2333/INF_553/blob/master/hw_pdf/assignment3.pdf)|[Python](https://github.com/AaronYang2333/INF_553/tree/master/ay_hw_3)|`Collaborative Filtering` `MinHash` `LSH`|7.0 (python) + 0.0 (scala) / 7.0 + 0.7|
 |4|[Graph Network Algorithm](https://github.com/AaronYang2333/INF_553/blob/master/hw_pdf/assignment4.pdf)|[Python](https://github.com/AaronYang2333/INF_553/tree/master/ay_hw_4)|`Betweenness` `Communities Detection` `Girvan-Newman Algorithm`|7.0 (python) + 0.0 (scala) / 7.0 + 0.7|
